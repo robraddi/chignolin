@@ -22,19 +22,23 @@ def split(string):
 
 
 
-def compute_ensemble_avg_J(grouped_files, outdir, return_index=False, verbose=False):
+def compute_ensemble_avg_J(grouped_files, outdir, model="Bax2007", return_index=False, verbose=False):
+    """Additional models are possible, such as 'Habeck'
+    """
+
     indices = None
     skip_idx = [2,5,8] # NOTE: Remove the last GLY since it's not in experimental data
     for i,state in enumerate(grouped_files):
         _state = []
         for j,frame in enumerate(state):
-            J = biceps.toolbox.get_J3_HN_HA(frame, model="Habeck",
+            J = biceps.toolbox.get_J3_HN_HA(frame, model=model,
                     outname=f'{outdir}/J_state_{i}_snapshot_{j}.npy', verbose=False)
             _state.append(J[-1][0])
 
         frame = md.load(frame, top=state[0])
         topology = frame.topology
         table = topology.to_dataframe()[0]
+        #print(table)
         #for k in range(len(J[0])):
         #    print([topology.atom(idx) for idx in J[0][k]])
         #exit()
