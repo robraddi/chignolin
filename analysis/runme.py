@@ -105,41 +105,26 @@ def append_to_database(A, dbName="database_Nd.pkl", verbose=False, **kwargs):
         for k,col in enumerate(row.columns[1:]):
             data[f"{col}_lam={lam}"] = row[col].to_numpy()
 
-    #for i,lam in enumerate(kwargs.get("lambda_values")):
-    #    lam = "%0.2g"%lam
-    #    data["Acceptance lam=%s "%lam] = [acceptance_info['acceptance %'][i]]
-
-    # NOTE: Saving results to database
-    if os.path.isfile(dbName):
-       db = pd.read_pickle(dbName)
-    else:
-        if verbose: print("Database not found...\nCreating database...")
-        db = pd.DataFrame()
-        db.to_pickle(dbName)
-    # append to the database
-    #db = pd.concat([db,data], axis=1, ignore_index=True)
-    db = db.append(data, ignore_index=True)
-    db.to_pickle(dbName)
+    data.to_pickle(dbName)
     gc.collect()
 
 # }}}
 
 # MAIN:{{{
 save_obj = 1
-testing = 1
+testing = 0
 if testing: nstates = 5
 else: nstates = [5,10,50,75,100,500][int(sys.argv[1])]
 if testing: FF = 0
 else: FF = int(sys.argv[2])
 
-#n_lambdas, nreplicas, nsteps, swap_every, change_Nr_every = 2, 1, 100000000, 0, 0 # NOTE: Bayesian only
-n_lambdas, nreplicas, nsteps, swap_every, change_Nr_every = 2, 8, 10000000, 0, 0
-n_lambdas, nreplicas, nsteps, swap_every, change_Nr_every = 2, 8, 1000000, 0, 0
+n_lambdas, nreplicas, nsteps, swap_every, change_Nr_every = 2, 1, 10000000, 0, 0 # NOTE: Bayesian only
+#n_lambdas, nreplicas, nsteps, swap_every, change_Nr_every = 2, 8, 10000000, 0, 0
 
 #stat_model, data_uncertainty = "Students", "single"
-#stat_model, data_uncertainty = "Bayesian", "single"
+stat_model, data_uncertainty = "Bayesian", "single"
 #stat_model, data_uncertainty = "Gaussian", "multiple"
-stat_model, data_uncertainty = "GB", "single"
+#stat_model, data_uncertainty = "GB", "single"
 
 all_data = 1
 J_only   = 0
