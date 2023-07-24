@@ -1,5 +1,5 @@
 # Libraries:{{{
-import string,re
+import string,re,copy
 import biceps
 from biceps.toolbox import three2one
 import itertools
@@ -143,7 +143,8 @@ def plot_heatmaps_of_chi2_prior(df, reduced=False, figname="chi_squared.pdf",
 
     df["FF"] = [ff.replace('AMBER','A').replace('CHARM','C') for ff in df["FF"].to_numpy()]
     results = df.copy()
-    print(results)
+    #print(results)
+    #print(results[cols[0]])
 
     fig = plt.figure(figsize=figsize)
     gs = gridspec.GridSpec(grid[0], grid[1])#, width_ratios=[4, 1], wspace=0.001, hspace=0.5)
@@ -157,9 +158,11 @@ def plot_heatmaps_of_chi2_prior(df, reduced=False, figname="chi_squared.pdf",
         ax4 = plt.subplot(gs[positions[i]])
         biceps_score_cols = [col]
         score_cols,std_cols = biceps_score_cols[::2],biceps_score_cols[1::2]
-        results_df = results.where(results["stat_model"]=="Bayesian")
+        results_df = results.where(results["stat_model"]=="Single replica")
         results_df = results_df.iloc[np.where((results_df["nreplica"]==1))[0]]
+        print(results_df)
         results_df = results_df.groupby(["FF", "nstates", "uncertainties"]).agg("mean")
+        #results_df = results_df.groupby(["FF", "nstates"]).agg("mean")
 
         if not all_data: prefix = prefix + " for %s"%col.split("_")[-1]
 
@@ -176,6 +179,7 @@ def plot_heatmaps_of_chi2_prior(df, reduced=False, figname="chi_squared.pdf",
         #print(data)
         data = data.reset_index()
         data["nstates"] = [int(val) for val in data["nstates"].to_numpy()]
+        print(data)
         data = data.pivot("FF", "nstates", col)
 
         sb.heatmap(data, ax=ax4, linewidths=.5, annot=True, fmt="0.2f", annot_kws={"fontsize":annot_fontsize},
@@ -260,7 +264,7 @@ def plot_heatmap_of_chi2_prior(df, reduced=False, Nd=None, figname="chi_squared.
     ax4 = plt.subplot(gs[(0,0)])
     biceps_score_cols = [_chi2_col_]
     score_cols,std_cols = biceps_score_cols[::2],biceps_score_cols[1::2]
-    results_df = results.where(results["stat_model"]=="Bayesian")
+    results_df = results.where(results["stat_model"]=="Single replica")
     results_df = results_df.iloc[np.where((results_df["nreplica"]==1))[0]]
     results_df = results_df.groupby(["FF", "nstates", "uncertainties"]).agg("mean")
 
@@ -606,6 +610,99 @@ def plot_heatmap_of_DKL(df, stat_models, figname="BICePs_Scores.pdf"):
 # }}}
 
 
+# plot_heatmaps_of_column:{{{
+def plot_heatmaps_of_columns(df, stat_models, columns, figname="heatmaps.pdf", title=None,
+                      title_fontsize=20, title_position=(0.5,0.98), annot_fontsize=13,
+                      save_tables=True, cbar_loc="right", grid=(2, 2),
+                      positions=[(0,0), (0,1), (1,0), (1,1)],
+                      figsize=(12, 12)):
+
+    df["FF"] = [ff.replace('AMBER','A').replace('CHARM','C') for ff in df["FF"].to_numpy()]
+    results = df.copy()
+    fig = plt.figure(figsize=figsize)
+    gs = gridspec.GridSpec(grid[0], grid[1])#, width_ratios=[4, 1], wspace=0.001, hspace=0.5)
+    left_cols, bottom_cols, other_cols = biceps.toolbox.get_seperate_columns(positions)
+    for i,stat_model in enumerate(stat_models):
+        print(stat_model)
+        ax4 = plt.subplot(gs[positions[i]])
+        results_df = results.where(results["stat_model"]==stat_model)
+        if stat_model == "Bayesian":
+            results_df = results_df.iloc[np.where((results_df["nreplica"]==1))[0]]
+        nreplica = results_df["nreplica"].to_numpy(dtype=int)
+
+        results_df = results_df.groupby(["FF", "nstates"]).agg("mean")
+        data = results_df[columns[i]].reset_index().groupby(["FF","nstates"]).agg("mean")
+        data = data.reset_index()
+        data["nstates"] = [int(val) for val in data["nstates"].to_numpy()]
+        data = data.pivot("FF", "nstates", columns[i])
+
+        #if save_tables: data.to_html(f"{figname.split('.')[0]}_{stat_model}.html")
+        sb.heatmap(data, ax=ax4, linewidths=.5, annot=True, fmt="0.2f", annot_kws={"fontsize":annot_fontsize},
+                   cbar_kws=dict(use_gridspec=True,location=cbar_loc)) #, label=col, vmin=-20, vmax=0)
+        cbar = ax4.collections[0].colorbar
+        # here set the labelsize by 14
+        cbar.ax.tick_params(labelsize=14)
+
+
+        for row in ax4.get_xticklabels():
+            row.set_text(row.get_text().split(",")[0].split("(")[-1])
+
+        ax4.set_xticklabels(ax4.get_xticklabels(), rotation=0)
+        ax4.set_ylabel("")
+        ax4.set_xlabel("States", fontsize=16)
+        if np.where(positions[i] == np.array(left_cols))[0] != []:
+            ax4.tick_params(labelbottom=False, labeltop=False, labelleft=True,
+                             labelright=False, bottom=True, top=True, left=True, right=True)
+            ax4.set_xlabel("")
+
+        if np.where(positions[i] == np.array(other_cols))[0] != []:
+            ax4.tick_params(labelbottom=False, labeltop=False, labelleft=False,
+                             labelright=False, bottom=True, top=True, left=True, right=True)
+            ax4.set_xlabel("")
+
+        if np.where(positions[i] == np.array(bottom_cols))[0] != []:
+            ax4.tick_params(labelbottom=True, labeltop=False, labelleft=False,
+                             labelright=False, bottom=True, top=True, left=True, right=True)
+            ax4.set_xlabel("States", fontsize=16)
+
+        if positions[i] == (grid[0]-1, 0):
+            ax4.tick_params(labelbottom=True, labeltop=False, labelleft=True,
+                             labelright=False, bottom=True, top=True, left=True, right=True)
+            ax4.set_xlabel("States", fontsize=16)
+
+
+
+        #ax4.set_title(f"BICePs Scores ({stat_model})", size=16)
+        ax4.set_title(f"{stat_model}", size=16)
+        #ax4.xaxis.set_visible(False)
+
+
+        # Setting the ticks and tick marks
+        ticks = [ax4.xaxis.get_minor_ticks(),
+                 ax4.xaxis.get_major_ticks()]
+        marks = [ax4.get_xticklabels(),
+                ax4.get_yticklabels()]
+        for k in range(0,len(ticks)):
+            for tick in ticks[k]:
+                tick.label.set_fontsize(16)
+        for k in range(0,len(marks)):
+            for mark in marks[k]:
+                mark.set_size(fontsize=16)
+                if k == 0:
+                    #mark.set_rotation(s=25)
+                    mark.set_rotation(s=0)
+
+        x,y = -0.1, 1.02
+        ax4.text(x,y, string.ascii_lowercase[i], transform=ax4.transAxes,
+                size=20, weight='bold')
+    if title_position != None:
+        if title != None:
+            fig.suptitle(title, fontweight="bold",
+                     x=title_position[0], y=title_position[1], size=title_fontsize)
+    fig.tight_layout()
+    fig.savefig(f"{figname}", dpi=600)
+# }}}
+
 # plot_heatmap_of_biceps_scores:{{{
 def plot_heatmap_of_biceps_scores(df, stat_models, figname="BICePs_Scores.pdf",
                       title_fontsize=20, title_position=(0.5,0.98), annot_fontsize=13,
@@ -708,7 +805,7 @@ def plot_heatmap_of_biceps_scores(df, stat_models, figname="BICePs_Scores.pdf",
         ax4.text(x,y, string.ascii_lowercase[i], transform=ax4.transAxes,
                 size=20, weight='bold')
     if title_position != None:
-        fig.suptitle(f"BICePs Scores", fontweight="bold",
+        fig.suptitle(r"BICePs Scores ($\lambda=0 \rightarrow \lambda=1$)", fontweight="bold",
                      x=title_position[0], y=title_position[1], size=title_fontsize)
     fig.tight_layout()
     fig.savefig(f"{figname}", dpi=600)
@@ -819,7 +916,8 @@ def plot_heatmap_of_biceps_scores_std(df, stat_models, figname="BICePs_Scores.pd
                 size=20, weight='bold')
 
     if title_position != None:
-        fig.suptitle(f"BICePs Scores Std", fontweight="bold",
+        fig.suptitle(r"BICePs Scores SEM ($\lambda=0 \rightarrow \lambda=1$)", fontweight="bold",
+        #fig.suptitle(f"BICePs Scores Std", fontweight="bold",
                      x=title_position[0], y=title_position[1], size=title_fontsize)
     fig.tight_layout()
     fig.savefig(f"{figname}", dpi=600)
@@ -1058,15 +1156,11 @@ FF_list = ["AMBER14SB","AMBER99SB-ildn","CHARMM27","AMBER99",
 stat_models = ["Bayesian", "GB", "Students", "Gaussian"]
 new_sm = ["Single replica", "Good-Bad", "Student's", "Gaussian"]
 
-#stat_models = ["Students"]
-#new_sm = ["Student's"]
+#stat_models = ["Bayesian", "GaussianSP", "GB", "Students"]
+#new_sm = ["Single replica", "GaussianSP", "Good-Bad", "Student's"]
 
 
-
-
-stat_models = ["Bayesian", "GaussianSP", "GB", "Students"]
-new_sm = ["Single replica", "GaussianSP", "Good-Bad", "Student's"]
-
+_stat_models = stat_models.copy()
 # NOTE:
 plot_population_bar_charts = 0
 if plot_population_bar_charts:
@@ -1286,6 +1380,7 @@ files = biceps.toolbox.get_files(f"{analysis_dir}/*/nclusters_*/*/*/results.pkl"
 #files = biceps.toolbox.get_files(f"{sys_name}/*/nclusters_*/*/*/results.pkl")[::4] # for testing...
 results = []
 for file in files:
+#for file in files[::10]:
     for stat_model in stat_models:
         if stat_model in file:
             add_file = True
@@ -1341,6 +1436,8 @@ for i,stat_model in enumerate(stat_models):
 
 
 
+print(list(set(results["FF"].to_numpy())))
+
 #exit()
 #print(results)
 #results.to_csv("table.csv")
@@ -1357,7 +1454,7 @@ biceps.toolbox.mkdir(outdir)
 #exit()
 
 
-plot_BS_heatmap = 1
+plot_BS_heatmap = 0
 if plot_BS_heatmap:
     plot_heatmap_of_biceps_scores(results, stat_models, figname=f"figures/biceps_scores.pdf",
                           grid=(2, 2), positions=[(0,0), (0,1), (1,0), (1,1)], figsize=(12, 12))
@@ -1365,8 +1462,8 @@ if plot_BS_heatmap:
                           #grid=(4, 2), positions=[(0,0), (0,1), (1,0), (1,1), (2,0), (2,1), (3,0), (3,1)],figsize=(12, 14))
 
     plot_heatmap_of_biceps_scores(results, stat_models, figname=f"figures/biceps_scores_horizontial.pdf",
-                          #title_fontsize=20, title_position=(0.5, 0.96),
-                          title_fontsize=20, title_position=None, annot_fontsize=14,
+                          title_fontsize=20, title_position=(0.5, 0.96), annot_fontsize=14,
+                          #title_fontsize=20, title_position=None, annot_fontsize=14,
                           grid=(1, 4), positions=[(0,0), (0,1), (0,2), (0,3)], figsize=(20,7), cbar_loc="top")
 
     plot_heatmap_of_biceps_scores_std(results, stat_models, figname=f"figures/biceps_scores_std.pdf",  use_SEM=True,
@@ -1374,8 +1471,8 @@ if plot_BS_heatmap:
                           #grid=(3, 2), positions=[(0,0), (0,1), (1,0), (1,1), (2,0), (2,1)],figsize=(12, 12))
 
     plot_heatmap_of_biceps_scores_std(results, stat_models, figname=f"figures/biceps_scores_std_horizontial.pdf",
-                          #title_fontsize=20, title_position=(0.5, 0.96),
-                          title_fontsize=20, title_position=None, annot_fontsize=14,  use_SEM=True,
+                          title_fontsize=20, title_position=(0.5, 0.96), annot_fontsize=14,
+                          #title_fontsize=20, title_position=None, annot_fontsize=14,  use_SEM=True,
                           grid=(1, 4), positions=[(0,0), (0,1), (0,2), (0,3)], figsize=(20,7), cbar_loc="top")
 
 
@@ -1741,8 +1838,11 @@ if plot_chi_squared:
 
     results["biceps-chi-squared"] = reduced_biceps.sum(axis=1).to_numpy()/Nd #biceps_chi2/Nd
 
+
+
     dir = f"figures/separate_chi2-prior"
     biceps.toolbox.mkdir(dir)
+
     plot_heatmaps_of_chi2_prior(results, reduced=True, cols=["reduced chi-squared_prior"], Nds=[Nd], figname=f"{dir}/chi_squared_all{ext}.pdf",
             save_tables=False, title_fontsize=20, title_position=(0.5,0.98), annot_fontsize=14, all_data=1,
             cbar_loc="right", grid=(1, 1), positions=[(0,0)], figsize=(8,6))
@@ -1754,279 +1854,293 @@ if plot_chi_squared:
     plt.clf()
     cols = []
     Nds = []
+    temp_results = results.copy(deep=True)
     for col in _Nd.keys():
-        #print(col)
-        #print(_reduced_prior[col])
-        results["reduced chi-squared_prior"] = _reduced_prior[col].to_numpy()/_Nd[col]
-        results[f"reduced chi-squared_prior_{col}"] = _reduced_prior[col].to_numpy()/_Nd[col]
+        temp_results["reduced chi-squared_prior"] = _reduced_prior[col].to_numpy()/_Nd[col]
+        temp_results[f"reduced chi-squared_prior_{col}"] = _reduced_prior[col].to_numpy()/_Nd[col]
         cols.append(f"reduced chi-squared_prior_{col}")
         Nds.append(_Nd[col])
         filename = f"{dir}/reduced_chi-squared_{col}_prior{ext}.pdf"
-#        plot_heatmap_of_chi2_prior(results, reduced=True, Nd=_Nd[col], figname=filename, datatype=col)
-#        plt.close()
-#        plt.clf()
 
-    plot_heatmaps_of_chi2_prior(results, reduced=True, cols=cols, Nds=Nds, figname=f"{dir}/chi_squared_horizontial{ext}.pdf",
+    plot_heatmaps_of_chi2_prior(temp_results, reduced=True, cols=cols, Nds=Nds, figname=f"{dir}/chi_squared_horizontial{ext}.pdf",
             save_tables=False, title_fontsize=20, title_position=(0.5,0.98), annot_fontsize=14,  all_data=0,
             cbar_loc="top", grid=(1, 4), positions=[(0,0), (0,1), (0,2), (0,3)], figsize=(20,7))
 
-
-
-    exit()
-
-
-
-#    nstates = 500
-#    _reduced_prior = _reduced_prior.iloc[np.where(_reduced_prior["nstates"].to_numpy() == nstates)[0]]
-#    _reduced_prior = _reduced_prior.groupby(["FF", "nstates"]).agg("mean")
-#    print(_reduced_prior)
-#
-#    # make figure
-#    plt.close()
-#    plt.clf()
-#    for col in _reduced_prior.columns.to_list():
-#        print(col)
-#        print(_reduced_prior[col])
-#        #ax = _reduced_prior[col].plot.bar(figsize=(10, 4), rot=35)
-#        ax = _reduced_prior[col].plot.scatter(figsize=(10, 4), rot=35)
-#        #ax.errobar(_reduced_prior[col].index, _reduced_prior[col].to_numpy()
-#
-#        fig = ax.get_figure()
-#        fig.tight_layout()
-#        fig.savefig(f"{dir}/chi-squared_{col}_prior_{nstates}.pdf")
-#        plt.close()
-#        plt.clf()
+    plot_heatmaps_of_columns(results, stat_models, columns=["D_KL"]*len(stat_models), figname=f"figures/BICePs_D_KL_all{ext}.pdf",
+                          title=r"$D_{KL}$ of BICePs reweighted populations ($\lambda=0 \rightarrow \lambda=1$)",
+                          title_fontsize=20, title_position=(0.5, 0.96), annot_fontsize=14,
+                          #title_fontsize=20, title_position=None, annot_fontsize=14,
+                          grid=(1, 4), positions=[(0,0), (0,1), (0,2), (0,3)], figsize=(20,7), cbar_loc="top")
 
 
 
 
 
+    stat_models = _stat_models.copy()
+
+    plot_ml_sigmas = 1
+    if plot_ml_sigmas:
+        # Maximum likelihood sigmas:{{{
+        dir = f"figures/max_likelihood_sigmas"
+        nstates = 500
+        #nstates = 10
+        biceps.toolbox.mkdir(dir)
+        for i,stat_model in enumerate(stat_models): #list(set(results["stat_model"].to_numpy())):
+            if stat_model != "Gaussian": continue
+            _results = results.iloc[np.where(results[["stat_model"]].to_numpy()==new_sm[i])[0]]
+
+            #for nstates in list(set(_results["nstates"].to_numpy())):
+            r = _results.iloc[np.where(_results["nstates"].to_numpy()==nstates)[0]]
+            res = r.copy()
+            print(stat_model)
+            print(list(set(res["nsteps"].to_numpy())))
+            nsteps = int(list(set(res["nsteps"].to_numpy()))[0])
+            nreplica = int(list(set(res["nreplica"].to_numpy()))[0])
+
+            x,y = [],[]
+            for ff in FF_list:
+                try:
+                    results_dir = f"{sys_name}/{ff}/nclusters_{nstates}/{stat_model}_*_sigma/{nsteps}_steps_{nreplica}_replicas_2_lam__swap_every_0_change_Nr_every_0"
+                    files = biceps.toolbox.get_files(f"{results_dir}*/mlp.pkl")
+                    for file in files:
+                        if len(file.split("trial_")) >= 2:
+                            trial = int(file.split("trial_")[-1].split("/mlp.pkl")[0])
+                        else:
+                            trial = 0
+
+                        mlp = pd.read_pickle(file)
+
+                        #print(mlp)
+                        #mlp = mlp.iloc[[1]]
+                        mlp = mlp.iloc[[1]]
+                        columns = [col for col in mlp.columns.to_list() if "sigma" in col]
+                        mlp = mlp[columns]
+                        mlp.columns = [col.split("sigma_")[-1] for col in columns]
+
+                        # make figure
+                        fig = plt.figure(figsize=(12, 4))
+                        gs = gridspec.GridSpec(1, 1)
+                        ax = plt.subplot(gs[(0,0)])
+                        colors = ["c", "y", "r", "g"]
+                        ticklabels = []
+                        max_value = 0
+                        for c,col in enumerate(mlp.columns.to_list()):
+                            if "noe" in col:
+                                ax.bar(col, mlp[col], color=colors[0])
+                                #ticklabels.append(re.findall(r'\d+', col)[0].split("noe")[-1])
+                            elif "J" in col:
+                                ax.bar(col, mlp[col], color=colors[1])
+                                #ticklabels.append(re.findall(r'\d+', col)[0].split("J")[-1])
+                            elif "H" in col:
+                                ax.bar(col, mlp[col], color=colors[2])
+                                #ticklabels.append(re.findall(r'\d+', col)[0].split("H")[-1])
+                            if max_value < mlp[col].max():
+                                max_value = mlp[col].max()
+                            #print(col)
+                            ticklabels.append(re.findall(r'\d+', col)[0])
+
+                        if len(mlp.columns.to_list()) > 10:
+                            visible_tick_labels = [ticklabels[i].split("noe")[-1].split("J")[-1].split("H")[-1] if i % 4 == 0 else "" for i in range(len(ticklabels))]
+                            # Set the tick locations and labels
+                            ax.set_xticks(ax.get_xticks())
+                            ax.set_xticklabels(visible_tick_labels, rotation=10, fontsize=10)
+                        else:
+                            visible_tick_labels = [ticklabels[i].split("noe")[-1].split("J")[-1].split("H")[-1] for i in range(len(ticklabels))]
+                            ax.set_xticks(ax.get_xticks())
+                            ax.set_xticklabels(visible_tick_labels, rotation=10, fontsize=10)
 
 
+                        xlim = len(mlp.columns.to_list())+1
+                        ylim = max_value + 0.5
+                        ax.set_xlim(-1, xlim)
+                        ax.set_ylim(0, ylim)
+                        ax.text(xlim*0.65, ylim*0.925, 'NOE distances', fontsize=16, color=colors[0])
+                        ax.text(xlim*0.35, ylim*0.925, 'J-coupling', fontsize=16, color=colors[1])
+                        ax.text(xlim*0.05, ylim*0.925, 'Chemical shift', fontsize=16, color=colors[2])
+                        ax.set_ylabel(r"$\sigma$", fontsize=16)
+                        ax.set_xlabel(r"Data restraint index", fontsize=16)
+
+                        fig = ax.get_figure()
+                        fig.tight_layout()
+                        fig.savefig(f"{dir}/max_likelihood_sigmas_{ff}_{nstates}_{stat_model}_trial_{trial}.pdf")
+                except(Exception) as e:
+                    print(e)
+
+    # }}}
 
 
-    # Maximum likelihood sigmas:{{{
-    dir = f"figures/max_likelihood_sigmas"
-    nstates = 500
-    nstates = 10
-    biceps.toolbox.mkdir(dir)
-    for stat_model in stat_models: #list(set(results["stat_model"].to_numpy())):
-        _results = results.iloc[np.where(results[["stat_model"]].to_numpy()==stat_model)[0]]
+    plot_biceps_chi2_vs_beauchamp = 1
+    if plot_biceps_chi2_vs_beauchamp:
+    # BICePs chi2 Vs beauchamp{{{
+        dir = f"figures/chi2_versus_D_KL"
+        biceps.toolbox.mkdir(dir)
 
-        #for nstates in list(set(_results["nstates"].to_numpy())):
-        r = _results.iloc[np.where(_results["nstates"].to_numpy()==nstates)[0]]
-        res = r.copy()
-        print(stat_model)
-        print(list(set(res["nsteps"].to_numpy())))
-        nsteps = int(list(set(res["nsteps"].to_numpy()))[0])
-        nreplica = int(list(set(res["nreplica"].to_numpy()))[0])
+        comparable_FFs = ['AMBER99SBnmr1-ildn', 'AMBER99SB-ildn', 'OPLS-aa', 'AMBER99', 'AMBER99SB', 'CHARMM27']
+        #comparable_FFs = [ff.replace('AMBER','A').replace('CHARM','C') for ff in comparable_FFs]
+        y = np.array([701.,909.,1216.,1745.,830.,952.], dtype=float)/524.          # interpolated colorbar
+        print(y)
+        print(list(set(results["FF"].to_numpy())))
 
-        x,y = [],[]
-        for ff in FF_list:
-            try:
-                results_dir = f"{sys_name}/{ff}/nclusters_{nstates}/{stat_model}_*_sigma/{nsteps}_steps_{nreplica}_replicas_2_lam__swap_every_0_change_Nr_every_0"
-                files = biceps.toolbox.get_files(f"{results_dir}*/mlp.pkl")
-                for file in files:
-                    if len(file.split("trial_")) >= 2:
-                        trial = int(file.split("trial_")[-1].split("/mlp.pkl")[0])
-                    else:
-                        trial = 0
+        correlation_results = []
 
-                    mlp = pd.read_pickle(file)
+        nstates = 500 # IMPORTANT:
+        for i,stat_model in enumerate(stat_models):
 
-                    #print(mlp)
-                    #mlp = mlp.iloc[[1]]
-                    mlp = mlp.iloc[[1]]
-                    columns = [col for col in mlp.columns.to_list() if "sigma" in col]
-                    mlp = mlp[columns]
-                    mlp.columns = [col.split("sigma_")[-1] for col in columns]
+            #results.iloc[np.where((results[["stat_model"]].to_numpy()==new_sm[i]) & (results[["nstates"]].to_numpy()==nstates) )[0]]
+            _results = results.iloc[np.where(results[["stat_model"]].to_numpy()==new_sm[i])[0]]
+            #for nstates in list(set(_results["nstates"].to_numpy())):
+            r = _results
+            res = r.copy()
+            nsteps = int(list(set(res["nsteps"].to_numpy()))[0])
+            nreplica = int(list(set(res["nreplica"].to_numpy()))[0])
+            if stat_model =="Gaussian": continue
 
-                    # make figure
-                    fig = plt.figure(figsize=(12, 4))
-                    gs = gridspec.GridSpec(1, 1)
-                    ax = plt.subplot(gs[(0,0)])
-                    colors = ["c", "y", "r", "g"]
-                    ticklabels = []
-                    for c,col in enumerate(mlp.columns.to_list()):
-                        if "noe" in col:
-                            ax.bar(col, mlp[col], color=colors[0])
-                        elif "J" in col:
-                            ax.bar(col, mlp[col], color=colors[1])
-                        elif "H" in col:
-                            ax.bar(col, mlp[col], color=colors[2])
-                        #print(col)
-                        ticklabels.append(re.findall(r'\d+', col)[0])
-                    if len(mlp.columns.to_list()) > 10:
-                        for r,row in enumerate(ax.get_xticklabels()):
-                            #row.set_text(row.get_text().split("sigma_")[-1])#.split("")[-1])
-                            if r %2 == 0:
-                                row.set_text(ticklabels[r])
-                            else:
-                                row.set_text("")
-                    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, fontsize=8)
-                    ax.set_xlim(-1, len(mlp.columns.to_list())+1)
-
-                    fig = ax.get_figure()
-                    fig.tight_layout()
-                    fig.savefig(f"{dir}/max_likelihood_sigmas_{ff}_{nstates}_{stat_model}_trial_{trial}.pdf")
-            except(Exception) as e:
-                print(e)
-
-# }}}
-
-#    exit()
-
-#    # KDE for maximum likelihood sigmas:{{{
-#    dir = f"figures/max_likelihood_sigmas"
-#    nstates = 500
-#    nstates = 10
-#    biceps.toolbox.mkdir(dir)
-#    for stat_model in list(set(results["stat_model"].to_numpy())):
-#        _results = results.iloc[np.where(results[["stat_model"]].to_numpy()==stat_model)[0]]
-#
-#        #for nstates in list(set(_results["nstates"].to_numpy())):
-#        r = _results.iloc[np.where(_results["nstates"].to_numpy()==nstates)[0]]
-#        res = r.copy()
-#        print(stat_model)
-#        print(list(set(res["nsteps"].to_numpy())))
-#        nsteps = int(list(set(res["nsteps"].to_numpy()))[0])
-#        nreplica = int(list(set(res["nreplica"].to_numpy()))[0])
-#
-#        x,y = [],[]
-#        for ff in FF_list:
-#            try:
-#                results_dir = f"{sys_name}/{ff}/nclusters_{nstates}/{stat_model}_*_sigma/{nsteps}_steps_{nreplica}_replicas_2_lam__swap_every_0_change_Nr_every_0"
-#                files = biceps.toolbox.get_files(f"{results_dir}*/mlp.pkl")
-#                for file in files:
-#                    if len(file.split("trial_")) >= 2:
-#                        trial = int(file.split("trial_")[-1].split("/mlp.pkl")[0])
-#                    else:
-#                        trial = 0
-#
-#                    mlp = pd.read_pickle(file)
-#
-#                    #print(mlp)
-#                    #mlp = mlp.iloc[[1]]
-#                    mlp = mlp.iloc[[1]]
-#                    columns = [col for col in mlp.columns.to_list() if "sigma" in col]
-#                    mlp = mlp[columns]
-#                    mlp.columns = [col.split("sigma_")[-1] for col in columns]
-#
-#                    # make figure
-#                    fig = plt.figure(figsize=(12, 4))
-#                    gs = gridspec.GridSpec(1, 1)
-#                    ax = plt.subplot(gs[(0,0)])
-#                    colors = ["c", "y", "r", "g"]
-#                    ticklabels = []
-#                    for c,col in enumerate(mlp.columns.to_list()):
-#                        if "noe" in col:
-#                            ax.bar(col, mlp[col], color=colors[0])
-#                        elif "J" in col:
-#                            ax.bar(col, mlp[col], color=colors[1])
-#                        elif "H" in col:
-#                            ax.bar(col, mlp[col], color=colors[2])
-#                        #print(col)
-#                        ticklabels.append(re.findall(r'\d+', col)[0])
-#                    if len(mlp.columns.to_list()) > 10:
-#                        for r,row in enumerate(ax.get_xticklabels()):
-#                            #row.set_text(row.get_text().split("sigma_")[-1])#.split("")[-1])
-#                            if r %2 == 0:
-#                                row.set_text(ticklabels[r])
-#                            else:
-#                                row.set_text("")
-#                    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, fontsize=8)
-#                    ax.set_xlim(-1, len(mlp.columns.to_list())+1)
-#
-#                    fig = ax.get_figure()
-#                    fig.tight_layout()
-#                    fig.savefig(f"{dir}/max_likelihood_sigmas_{ff}_{nstates}_{stat_model}_trial_{trial}.pdf")
-#            except(Exception) as e:
-#                print(e)
-#
-## }}}
-#
-    #exit()
-
-# BICePs Vs 0.5 chi2/simga^2 + D_{KL}{{{
-# NOTE: Look at the plot of BICePs Vs 0.5 chi2/simga^2 + D_{KL}
-    dir = f"figures/chi2_versus_D_KL"
-    biceps.toolbox.mkdir(dir)
-
-    #_models = ["Bayesian", "GaussianSP"]
-    #for stat_model in list(set(results["stat_model"].to_numpy())):
-    nstates = 100
-    #for stat_model in stat_models: #_models:
-#    for stat_model in [students_model]:
-
-    for stat_model in [GB_model]:
-        _results = results.iloc[np.where(results[["stat_model"]].to_numpy()==stat_model)[0]]
-
-        #for nstates in list(set(_results["nstates"].to_numpy())):
-        r = _results.iloc[np.where(_results["nstates"].to_numpy()==nstates)[0]]
-        res = r.copy()
-        nsteps = int(list(set(res["nsteps"].to_numpy()))[0])
-        nreplica = int(list(set(res["nreplica"].to_numpy()))[0])
-
-        x,y = [],[]
-        for ff in FF_list:
-            results_dir = f"{sys_name}/{ff}/nclusters_{nstates}/{stat_model}_single_sigma/{nsteps}_steps_{nreplica}_replicas_2_lam__swap_every_0_change_Nr_every_0*"
-            if stat_model == students_model:
-                results_dir = f"{sys_name}/{ff}/nclusters_{nstates}/Students_new_single_sigma/{nsteps}_steps_{nreplica}_*"
+            x = []
+            for ff in comparable_FFs:
+                results_dir = f"{analysis_dir}/{ff}/nclusters_{nstates}/{stat_model}_single_sigma/{nsteps}_*"
+                print(results_dir)
                 files = biceps.toolbox.get_files(f"{results_dir}/mlp.pkl")
-            if stat_model == students_model:
-                results_dir = f"{sys_name}/{ff}/nclusters_{nstates}/GaussianGB_single_sigma/{nsteps}_steps_{nreplica}_*"
-                files = biceps.toolbox.get_files(f"{results_dir}/mlp.pkl")
+                print(files)
+                # use the first trial
 
-#            # FIXME: this is user controlled & might be different in the future
-#            #print(res.columns.to_list())
-#            #exit()
-#            #x.append(res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["D_KL"].to_numpy().mean())
-#            D_KL = res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["D_KL"].to_numpy().mean()
-#            #chi2 = res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["reduced chi-squared_prior"].to_numpy().mean()
-#            chi2 = res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["biceps-chi-squared"].to_numpy().mean()
+                ff = ff.replace('AMBER','A').replace('CHARM','C')
+                chi2 = res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["biceps-chi-squared"].to_numpy().mean()
+                mlp = pd.concat([pd.read_pickle(file).iloc[[1]] for file in files], axis=1).mean()
 
-            # use the first trial
-            D_KL = res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["D_KL"].to_numpy().mean()
-            chi2 = res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["biceps-chi-squared"].to_numpy().mean()
-            mlp = pd.read_pickle(files[0])
+                sigma_H = mlp["sigma_H0"].to_numpy().mean()
+                sigma_noe = mlp["sigma_noe0"].to_numpy().mean()
+                sigma_J = mlp["sigma_J0"].to_numpy().mean()
+                new_chi2 = 0.5*chi2/(sigma_H**2+sigma_noe**2+sigma_J**2)
+                value = new_chi2
+                print(f"new_chi2 = {value}")
+                x.append(value)
+                #y.append(res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["reduced chi-squared_prior"].to_numpy().mean())
+                #y.append()
+            x = np.array(x)
+            y = np.array(y)
+            #y -= y.min()
+            R2 = np.corrcoef(x, y)[0,-1]
+            R2 = R2**2
+            print(R2)
+            correlation_results.append({"nstates": nstates, "stat_model":new_sm[i],
+                                        "R2":R2, "BICePs chi-squared":x, "Beauchamp chi-squared":y,
+                })
 
-            sigma_H = mlp.iloc[[1]]["sigma_H0"].to_numpy().mean()
-            sigma_noe = mlp.iloc[[1]]["sigma_noe0"].to_numpy().mean()
-            sigma_J = mlp.iloc[[1]]["sigma_J0"].to_numpy().mean()
-
-            #value = chi2/(sigma_H**2+sigma_noe**2+sigma_J**2) + D_KL
-            value = 0.5*chi2/(sigma_H**2+sigma_noe**2+sigma_J**2) + D_KL
-            print(value)
-            x.append(value)
-            #y.append(res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["reduced chi-squared_prior"].to_numpy().mean())
-            y.append(res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["BICePs Score lam=1"].to_numpy().mean())
-        x = np.array(x)
-        y = np.array(y)
-        #y -= y.min()
-        R2 = np.corrcoef(x, y)[0,-1]
-        R2 = R2**2
-        print(R2)
-
-
-        try:
             simple_plot(x,y,
-                        xlabel=r'$0.5\chi^{2} / \sigma^{2} + D_{KL}$',
-                        ylabel=r'BICePs Score',
-                        name=f"{dir}/BICePs_versus_chi-squared_and_D_KL_{nstates}_{stat_model}.pdf",
+                        xlabel=r'BICePs $\chi^{2}/N$',
+                        ylabel=r'Beauchamp 2012 $\chi^{2}$',
+                        name=f"{dir}/Beauchamp_correlation_{nstates}.pdf",
                         size=111,Type='scatter',
                         color=False,fig_size=(8,6),invert_x_axis=False,fit=True,order=1,
                         xLine=None,yLine=None,
+                        #annotate_text=r"$R^{2}$ = %0.2f"%R2,text_x=x.min(),text_y=y.max(),
                         annotate_text=r"$R^{2}$ = %0.2f"%R2,text_x=x.max()-1,text_y=y.min(),
                         annotate_x=x.min(),annotate_y=y.max(),
                         arrow='->')
-        except(Exception) as e:
-            print(e)
-    #        exit()
-    #exit()
+        correlation_results = pd.DataFrame(correlation_results)
+        correlation_results.to_pickle(f"{dir}/Beauchamp_correlation_with_BICePs_chi-squared.pkl")
 
 
 
-# }}}
+
+    #stat_models = new_sm.copy()
+    plot_biceps_vs_bioEn = 0
+    if plot_biceps_vs_bioEn:
+    # BICePs Vs 0.5 chi2/simga^2 + D_{KL}{{{
+    # NOTE: Look at the plot of BICePs Vs 0.5 chi2/simga^2 + D_{KL}
+        dir = f"figures/chi2_versus_D_KL"
+        biceps.toolbox.mkdir(dir)
+
+        #_models = ["Bayesian", "GaussianSP"]
+        #for stat_model in list(set(results["stat_model"].to_numpy())):
+        nstates = 500 # IMPORTANT:
+        #for stat_model in stat_models: #_models:
+    #    for stat_model in [students_model]:
+
+        for i,stat_model in enumerate(stat_models):
+
+            #results.iloc[np.where((results[["stat_model"]].to_numpy()==new_sm[i]) & (results[["nstates"]].to_numpy()==nstates) )[0]]
+            _results = results.iloc[np.where(results[["stat_model"]].to_numpy()==new_sm[i])[0]]
+            #for nstates in list(set(_results["nstates"].to_numpy())):
+            r = _results
+            res = r.copy()
+            nsteps = int(list(set(res["nsteps"].to_numpy()))[0])
+            nreplica = int(list(set(res["nreplica"].to_numpy()))[0])
+            if stat_model =="Gaussian": continue
+
+            x,y = [],[]
+            for ff in FF_list:
+                results_dir = f"{analysis_dir}/{ff}/nclusters_{nstates}/{stat_model}_single_sigma/{nsteps}_*"
+                print(results_dir)
+                files = biceps.toolbox.get_files(f"{results_dir}/mlp.pkl")
+                print(files)
+                #if stat_model == students_model:
+                #    results_dir = f"{sys_name}/{ff}/nclusters_{nstates}/Students_new_single_sigma/{nsteps}_steps_{nreplica}_*"
+                #    files = biceps.toolbox.get_files(f"{results_dir}/mlp.pkl")
+                #if stat_model == students_model:
+                #    results_dir = f"{sys_name}/{ff}/nclusters_{nstates}/GaussianGB_single_sigma/{nsteps}_steps_{nreplica}_*"
+                #    files = biceps.toolbox.get_files(f"{results_dir}/mlp.pkl")
+
+
+    #            # FIXME: this is user controlled & might be different in the future
+    #            #print(res.columns.to_list())
+    #            #exit()
+    #            #x.append(res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["D_KL"].to_numpy().mean())
+    #            D_KL = res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["D_KL"].to_numpy().mean()
+    #            #chi2 = res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["reduced chi-squared_prior"].to_numpy().mean()
+    #            chi2 = res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["biceps-chi-squared"].to_numpy().mean()
+
+                # use the first trial
+                D_KL = res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["D_KL"].to_numpy().mean()
+                chi2 = res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["biceps-chi-squared"].to_numpy().mean()
+
+                mlp = pd.concat([pd.read_pickle(file).iloc[[1]] for file in files], axis=1).mean()
+                #print(mlp)
+
+                sigma_H = mlp["sigma_H0"].to_numpy().mean()
+                sigma_noe = mlp["sigma_noe0"].to_numpy().mean()
+                sigma_J = mlp["sigma_J0"].to_numpy().mean()
+
+                #res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["biceps-chi-squared"] = 0.5*chi2/(sigma_H**2+sigma_noe**2+sigma_J**2)
+                new_chi2 = 0.5*chi2/(sigma_H**2+sigma_noe**2+sigma_J**2)
+                value = new_chi2 + D_KL
+                print(f"new_chi2 + D_KL = {value}")
+                x.append(value)
+                #y.append(res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["reduced chi-squared_prior"].to_numpy().mean())
+                y.append(res.iloc[np.where(res["FF"].to_numpy()==ff)[0]]["BICePs Score lam=1"].to_numpy().mean())
+            x = np.array(x)
+            y = np.array(y)
+            #y -= y.min()
+            R2 = np.corrcoef(x, y)[0,-1]
+            R2 = R2**2
+            print(R2)
+
+            try:
+                simple_plot(x,y,
+                            xlabel=r'$0.5\chi^{2} / \sigma^{2} + D_{KL}$',
+                            ylabel=r'BICePs Score',
+                            name=f"{dir}/BICePs_versus_chi-squared_and_D_KL_{nstates}_{stat_model}.pdf",
+                            size=111,Type='scatter',
+                            color=False,fig_size=(8,6),invert_x_axis=False,fit=True,order=1,
+                            xLine=None,yLine=None,
+                            annotate_text=r"$R^{2}$ = %0.2f"%R2,text_x=x.max()-1,text_y=y.min(),
+                            annotate_x=x.min(),annotate_y=y.max(),
+                            arrow='->')
+            except(Exception) as e:
+                print(e)
+        #        exit()
+        #exit()
+
+#    plot_heatmaps_of_columns(results, stat_models, columns=["biceps-chi-squared"]*len(stat_models), figname=f"figures/BICePs_chi_squared_all{ext}.pdf",
+#                          title=r"BICePs \chi^{2} ($\lambda=0 \rightarrow \lambda=1$)",
+#                          title_fontsize=20, title_position=(0.5, 0.96), annot_fontsize=14,
+#                          #title_fontsize=20, title_position=None, annot_fontsize=14,
+#                          grid=(1, 4), positions=[(0,0), (0,1), (0,2), (0,3)], figsize=(20,7), cbar_loc="top")
+
+
+
+
+    # }}}
 
 
 # Plot heatmap of chi2 and compare correlations: {{{
@@ -2035,6 +2149,7 @@ if plot_chi_squared:
 # NOTE: appending reduced chi2 to rankings table
     #table_headings = ["reduced chi-squared_prior", "reduced chi-squared",
     states = 500
+    results["reduced chi-squared_prior"] = reduced_prior.sum(axis=1).to_numpy()/Nd #chi2_prior/Nd
     b = results.iloc[np.where(results["nstates"] == states)[0]].groupby("FF").agg("mean").sort_values("reduced chi-squared_prior")
     rankings = b.index.to_list()
     rankings = [ff.replace('AMBER','A').replace('CHARM','C') for ff in rankings]
@@ -2046,7 +2161,7 @@ if plot_chi_squared:
     for o,header in enumerate(headers):
         for i,stat_model in enumerate(stat_models):
             header = headers[o]
-            results_df = results.where((results["stat_model"]==stat_model) & (results["nstates"] == states))
+            results_df = results.where((results["stat_model"]==new_sm[i]) & (results["nstates"] == states))
             results_df = results_df.groupby(["FF", "uncertainties"]).agg("mean")
             #biceps_score_cols = [x for i,x in enumerate(results_df.columns.to_list()) if "BICePs Score" in str(x)]
             data = results_df[header].reset_index().drop("uncertainties", axis=1).groupby(["FF"]).agg("mean")
@@ -2055,8 +2170,9 @@ if plot_chi_squared:
             rankings = [ff.replace('AMBER','A').replace('CHARMM','C') for ff in rankings]
             rankings_table.append(rankings)
             header = header.replace('lam=1','').replace('reduced chi-squared',r'$\chi^{2}$').replace("BICePs Score", "BS")
-            rankings_table_columns.append(f"{header} ({stat_model})")
+            rankings_table_columns.append(f"{header} ({new_sm[i]})")
     df = pd.DataFrame(np.array(rankings_table).T, columns=rankings_table_columns)
+    print(df)
     df1 = df[[s for idx,s in enumerate(df.columns.to_list()) if "chi" in s]]
     df2 = df[[s for idx,s in enumerate(df.columns.to_list()) if "BS" in s]]
     df1.to_latex("figures/FF_chi2_rankings.tex", escape=False)
@@ -2078,13 +2194,18 @@ if plot_chi_squared:
     biceps.toolbox.mkdir(dir)
 
     comparable_FFs = ['AMBER99SBnmr1-ildn', 'AMBER99SB-ildn', 'OPLS-aa', 'AMBER99', 'AMBER99SB', 'CHARMM27']
+    comparable_FFs = [ff.replace('AMBER','A').replace('CHARM','C') for ff in comparable_FFs]
 #    y = np.array([440, 430, 675, 690, 475, 510])/395      # eyeballed (ubiquitin)
     #y = np.array([730, 1000, 1210, 1675, 920, 1030])/524  # eyeballed (all data)
-    y = np.array([701,909,1216,1745,830,952])/524          # interpolated colorbar
+    y = np.array([701.,909.,1216.,1745.,830.,952.], dtype=float)/524.          # interpolated colorbar
     print(y)
 
+    print(list(set(results["FF"].to_numpy())))
 
-    for nstates in list(set(results["nstates"].to_numpy())):
+    results["reduced chi-squared_prior"] = reduced_prior.sum(axis=1).to_numpy()/Nd #chi2_prior/Nd
+
+    #for nstates in list(set(results["nstates"].to_numpy())):
+    for nstates in [500]: #list(set(results["nstates"].to_numpy())):
         _results = results.iloc[np.where(results["nstates"].to_numpy()==nstates)[0]]
         res = _results.copy()
         x = []
@@ -2110,10 +2231,13 @@ if plot_chi_squared:
                     arrow='->')
 
 # NOTE: now compare our BICePs scores to Beauchamp 2012 chi2
-    for stat_model in stat_models: #list(set(results["stat_model"].to_numpy())):
-        _results = results.iloc[np.where(results[["stat_model"]].to_numpy()==stat_model)[0]]
+    correlation_results = []
 
-        for nstates in list(set(_results["nstates"].to_numpy())):
+    for i,stat_model in enumerate(stat_models): #list(set(results["stat_model"].to_numpy())):
+        _results = results.iloc[np.where(results[["stat_model"]].to_numpy()==new_sm[i])[0]]
+
+        #for nstates in list(set(_results["nstates"].to_numpy())):
+        for nstates in [500]:
             r = _results.iloc[np.where(_results["nstates"].to_numpy()==nstates)[0]]
             res = r.copy()
             x = []
@@ -2125,11 +2249,16 @@ if plot_chi_squared:
             R2 = np.corrcoef(x, y)[0,-1]
             R2 = R2**2
             print(R2)
+            correlation_results.append({"nstates": nstates, "stat_model":new_sm[i],
+                                        "R2":R2, "BICePs score":x, "Beauchamp chi-squared":y,
+                })
+
+
 
             try:
                 simple_plot(x,y,
                             xlabel=r'BICePs Score',
-                            ylabel=r'approx Beauchamp 2012 $\chi^{2}$',
+                            ylabel=r'approx. Beauchamp 2012 $\chi^{2}$',
                             name=f"{dir}/Beauchamp_correlation_with_BICePs_scores_{nstates}_{stat_model}.pdf",
                             size=111,Type='scatter',
                             color=False,fig_size=(8,6),invert_x_axis=False,fit=True,order=1,
@@ -2140,6 +2269,8 @@ if plot_chi_squared:
                             arrow='->')
             except(Exception) as e:
                 print(e)
+    correlation_results = pd.DataFrame(correlation_results)
+    correlation_results.to_pickle(f"{dir}/Beauchamp_correlation_with_BICePs_scores.pkl")
 
 
 
@@ -2147,9 +2278,9 @@ if plot_chi_squared:
 # NOTE: Plotting correlations between our BICePs scores and reduced chi2
     dir = f"figures/BICePs_chi2_correlations"
     biceps.toolbox.mkdir(dir)
-    for stat_model in stat_models:
-        print(stat_model)
-        _results = results.iloc[np.where(results["stat_model"] == stat_model)[0]]
+    for i,stat_model in enumerate(stat_models):
+        print(new_sm[i])
+        _results = results.iloc[np.where(results["stat_model"] == new_sm[i])[0]]
         res = _results.copy()
         x = res["reduced chi-squared"].to_numpy()
         y = res["BICePs Score lam=1"].to_numpy()
@@ -2173,9 +2304,9 @@ if plot_chi_squared:
 # NOTE: Plotting correlations between our BICePs scores and reduced chi2 from prior
     dir = f"figures/BICePs_chi2_correlations"
     biceps.toolbox.mkdir(dir)
-    for stat_model in stat_models:
-        print(stat_model)
-        _results = results.iloc[np.where(results["stat_model"] == stat_model)[0]]
+    for i,stat_model in enumerate(stat_models):
+        print(new_sm[i])
+        _results = results.iloc[np.where(results["stat_model"] == new_sm[i])[0]]
         res = _results.copy()
         x = res["reduced chi-squared_prior"].to_numpy()
         y = res["BICePs Score lam=1"].to_numpy()
@@ -2199,34 +2330,34 @@ if plot_chi_squared:
 
 
 # NOTE: Plotting correlations between our statistical models (likelihood functions)
-    dir = f"figures/stat_model_correlations"
-    biceps.toolbox.mkdir(dir)
-
-    _stat_models = ["Bayesian","GaussianSP"] # ,"Outliers", "Gaussian""SinglePrior","Outliers","Gaussian"]
-    combos = itertools.combinations(_stat_models, 2)
-    for i,pair in enumerate(combos):
-        stat_model1, stat_model2 = pair
-        _results1 = results.iloc[np.where(results["stat_model"] == stat_model1)[0]]
-        _results2 = results.iloc[np.where(results["stat_model"] == stat_model2)[0]]
-        #res = _results.copy()
-        x = _results1["BICePs Score lam=1"].to_numpy()
-        y = _results2["BICePs Score lam=1"].to_numpy()
-
-        R2 = np.corrcoef(x, y)[0,-1]
-        R2 = R2**2
-        print(R2)
-
-        simple_plot(x,y,
-                    xlabel=f'{stat_model1}',
-                    ylabel=f'{stat_model2}',
-                    name=f"{dir}/BICePs_score_correlation_{stat_model1}_and_{stat_model2}.pdf",
-                    size=111,Type='scatter',
-                    color=False,fig_size=(8,6),invert_x_axis=False,fit=True,order=1,
-                    xLine=None,yLine=None,
-                    #annotate_text=r"$R^{2}$ = %0.2f"%R2,text_x=x.min(),text_y=y.max(),
-                    annotate_text=r"$R^{2}$ = %0.2f"%R2,text_x=x.max()-1,text_y=y.min(),
-                    annotate_x=x.min(),annotate_y=y.max(),
-                    arrow='->')
+#    dir = f"figures/stat_model_correlations"
+#    biceps.toolbox.mkdir(dir)
+#
+#    _stat_models = ["Bayesian","GaussianSP"] # ,"Outliers", "Gaussian""SinglePrior","Outliers","Gaussian"]
+#    combos = itertools.combinations(_stat_models, 2)
+#    for i,pair in enumerate(combos):
+#        stat_model1, stat_model2 = pair
+#        _results1 = results.iloc[np.where(results["stat_model"] == stat_model1)[0]]
+#        _results2 = results.iloc[np.where(results["stat_model"] == stat_model2)[0]]
+#        #res = _results.copy()
+#        x = _results1["BICePs Score lam=1"].to_numpy()
+#        y = _results2["BICePs Score lam=1"].to_numpy()
+#
+#        R2 = np.corrcoef(x, y)[0,-1]
+#        R2 = R2**2
+#        print(R2)
+#
+#        simple_plot(x,y,
+#                    xlabel=f'{stat_model1}',
+#                    ylabel=f'{stat_model2}',
+#                    name=f"{dir}/BICePs_score_correlation_{stat_model1}_and_{stat_model2}.pdf",
+#                    size=111,Type='scatter',
+#                    color=False,fig_size=(8,6),invert_x_axis=False,fit=True,order=1,
+#                    xLine=None,yLine=None,
+#                    #annotate_text=r"$R^{2}$ = %0.2f"%R2,text_x=x.min(),text_y=y.max(),
+#                    annotate_text=r"$R^{2}$ = %0.2f"%R2,text_x=x.max()-1,text_y=y.min(),
+#                    annotate_x=x.min(),annotate_y=y.max(),
+#                    arrow='->')
 
 # }}}
 
@@ -2237,10 +2368,10 @@ if plot_chi_squared:
 for FF in FF_list:
     for clusters in [5,10,50,75,100,500]:
         #files = biceps.toolbox.get_files(f"{sys_name}/{FF}/*/*/*/*__reweighted_populations.csv")
-        files = biceps.toolbox.get_files(f"{sys_name}/{FF}/nclusters_{clusters}/*/*/*__reweighted_populations.csv")
+        files = biceps.toolbox.get_files(f"{analysis_dir}/{FF}/nclusters_{clusters}/*/*/*__reweighted_populations.csv")
         #print(files)
         #exit()
-        files = biceps.toolbox.get_files(f"{sys_name}/{FF}/nclusters_{clusters}/*/*/*__reweighted_populations.csv")
+        files = biceps.toolbox.get_files(f"{analysis_dir}/{FF}/nclusters_{clusters}/*/*/*__reweighted_populations.csv")
 
         # Get the files for prior pops and assignments (microstate --> macrostate)
         # ..for each FF/microstate clustering
@@ -2495,6 +2626,104 @@ for FF in FF_list:
 #
 ## }}}
 #
+
+
+#    exit()
+
+#    # KDE for maximum likelihood sigmas:{{{
+#    dir = f"figures/max_likelihood_sigmas"
+#    nstates = 500
+#    nstates = 10
+#    biceps.toolbox.mkdir(dir)
+#    for stat_model in list(set(results["stat_model"].to_numpy())):
+#        _results = results.iloc[np.where(results[["stat_model"]].to_numpy()==stat_model)[0]]
+#
+#        #for nstates in list(set(_results["nstates"].to_numpy())):
+#        r = _results.iloc[np.where(_results["nstates"].to_numpy()==nstates)[0]]
+#        res = r.copy()
+#        print(stat_model)
+#        print(list(set(res["nsteps"].to_numpy())))
+#        nsteps = int(list(set(res["nsteps"].to_numpy()))[0])
+#        nreplica = int(list(set(res["nreplica"].to_numpy()))[0])
+#
+#        x,y = [],[]
+#        for ff in FF_list:
+#            try:
+#                results_dir = f"{sys_name}/{ff}/nclusters_{nstates}/{stat_model}_*_sigma/{nsteps}_steps_{nreplica}_replicas_2_lam__swap_every_0_change_Nr_every_0"
+#                files = biceps.toolbox.get_files(f"{results_dir}*/mlp.pkl")
+#                for file in files:
+#                    if len(file.split("trial_")) >= 2:
+#                        trial = int(file.split("trial_")[-1].split("/mlp.pkl")[0])
+#                    else:
+#                        trial = 0
+#
+#                    mlp = pd.read_pickle(file)
+#
+#                    #print(mlp)
+#                    #mlp = mlp.iloc[[1]]
+#                    mlp = mlp.iloc[[1]]
+#                    columns = [col for col in mlp.columns.to_list() if "sigma" in col]
+#                    mlp = mlp[columns]
+#                    mlp.columns = [col.split("sigma_")[-1] for col in columns]
+#
+#                    # make figure
+#                    fig = plt.figure(figsize=(12, 4))
+#                    gs = gridspec.GridSpec(1, 1)
+#                    ax = plt.subplot(gs[(0,0)])
+#                    colors = ["c", "y", "r", "g"]
+#                    ticklabels = []
+#                    for c,col in enumerate(mlp.columns.to_list()):
+#                        if "noe" in col:
+#                            ax.bar(col, mlp[col], color=colors[0])
+#                        elif "J" in col:
+#                            ax.bar(col, mlp[col], color=colors[1])
+#                        elif "H" in col:
+#                            ax.bar(col, mlp[col], color=colors[2])
+#                        #print(col)
+#                        ticklabels.append(re.findall(r'\d+', col)[0])
+#                    if len(mlp.columns.to_list()) > 10:
+#                        for r,row in enumerate(ax.get_xticklabels()):
+#                            #row.set_text(row.get_text().split("sigma_")[-1])#.split("")[-1])
+#                            if r %2 == 0:
+#                                row.set_text(ticklabels[r])
+#                            else:
+#                                row.set_text("")
+#                    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, fontsize=8)
+#                    ax.set_xlim(-1, len(mlp.columns.to_list())+1)
+#
+#                    fig = ax.get_figure()
+#                    fig.tight_layout()
+#                    fig.savefig(f"{dir}/max_likelihood_sigmas_{ff}_{nstates}_{stat_model}_trial_{trial}.pdf")
+#            except(Exception) as e:
+#                print(e)
+#
+## }}}
+#
+    #exit()
+
+
+#    nstates = 500
+#    _reduced_prior = _reduced_prior.iloc[np.where(_reduced_prior["nstates"].to_numpy() == nstates)[0]]
+#    _reduced_prior = _reduced_prior.groupby(["FF", "nstates"]).agg("mean")
+#    print(_reduced_prior)
+#
+#    # make figure
+#    plt.close()
+#    plt.clf()
+#    for col in _reduced_prior.columns.to_list():
+#        print(col)
+#        print(_reduced_prior[col])
+#        #ax = _reduced_prior[col].plot.bar(figsize=(10, 4), rot=35)
+#        ax = _reduced_prior[col].plot.scatter(figsize=(10, 4), rot=35)
+#        #ax.errobar(_reduced_prior[col].index, _reduced_prior[col].to_numpy()
+#
+#        fig = ax.get_figure()
+#        fig.tight_layout()
+#        fig.savefig(f"{dir}/chi-squared_{col}_prior_{nstates}.pdf")
+#        plt.close()
+#        plt.clf()
+
+
 
 
 

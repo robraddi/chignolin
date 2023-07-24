@@ -591,8 +591,9 @@ for j,_col_ in enumerate(_cols_):
     arr = _cols_xi_[j]["BS"].to_numpy()
     data["BS"] = _cols_xi_[j]["BS"].to_numpy()
     index = np.where(data["BS"].to_numpy() == np.min(data["BS"].to_numpy()))[0]
-    data["BS"] -= data["BS"].min()
+    #data["BS"] -= data["BS"].min()
     data["BS"] = data["BS"].to_numpy() + np.concatenate(data["BICePs Score lam=1"].to_numpy())
+    data["BS"] -= data["BS"].min()
 
     vmin, vmax = data["BS"].min(), data["BS"].max() #cbar_ax.get_data_limits()
     data = data.reset_index()
@@ -620,14 +621,14 @@ for j,_col_ in enumerate(_cols_):
     else:
         sb.heatmap(data, ax=ax, linewidths=.5, annot=True, fmt="0.2f", annot_kws={"fontsize":annot_fontsize},cbar=False)
 
-    # find the model with the lowest score and put a black box around it
-    data_array  = data.to_numpy()
-    # Find the indices of the minimum value in the data array
-    highlighted_cells = [np.unravel_index(data_array.argmin(), data_array.shape)]
-    # Iterate over the highlighted cells and draw rectangles around them
-    for cell in highlighted_cells:
-        rect = patches.Rectangle((cell[1]+0.90, cell[0]), width=0.08, height=0.50, linewidth=0.5, edgecolor='k', facecolor='gold', linestyle="-")
-        ax.add_patch(rect)
+    ## find the model with the lowest score and put a black box around it
+    #data_array  = data.to_numpy()
+    ## Find the indices of the minimum value in the data array
+    #highlighted_cells = [np.unravel_index(data_array.argmin(), data_array.shape)]
+    ## Iterate over the highlighted cells and draw rectangles around them
+    #for cell in highlighted_cells:
+    #    rect = patches.Rectangle((cell[1]+0.90, cell[0]), width=0.08, height=0.50, linewidth=0.5, edgecolor='k', facecolor='gold', linestyle="-")
+    #    ax.add_patch(rect)
 
     #for cell in [(_ref_index,0)]:
     #    #rect = patches.Rectangle((cell[1], cell[0]), width=1.00, height=1.00, linewidth=2., edgecolor='white', facecolor='none', linestyle="--")

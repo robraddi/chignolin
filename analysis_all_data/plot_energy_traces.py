@@ -25,9 +25,9 @@ _outdir = "energy_traces"
 biceps.toolbox.mkdir(_outdir)
 
 #stat_model,nreplicas,data_uncertainty = "Bayesian", 1, "single"
-stat_model,nreplicas,data_uncertainty = "GB", 8, "single"
+#stat_model,nreplicas,data_uncertainty = "GB", 8, "single"
 #stat_model,nreplicas,data_uncertainty = "Students",8, "single"
-#stat_model,nreplicas,data_uncertainty = "Gaussian", 8, "multiple"
+stat_model,nreplicas,data_uncertainty = "Gaussian", 8, "multiple"
 
 outdir = f"*/nclusters_{energies}/{stat_model}_{data_uncertainty}_sigma/10000000_steps_{nreplicas}_replicas_*_trial_0"
 
@@ -179,6 +179,13 @@ for i,ax in enumerate(axs):
     for k in range(0,len(marks)):
         for mark in marks[k]:
             mark.set_size(fontsize=label_fontsize-2)
+    if stat_model == "Students":
+        ax.set_ylim(top=210)
+    if stat_model == "Gaussian":
+        ax.set_ylim(top=200)
+
+
+
 
 if remove_xi0:
     ax1.set_ylim(top=200)
