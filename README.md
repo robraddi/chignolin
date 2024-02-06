@@ -33,6 +33,7 @@ Bayesian Inference of Conformational Populations (BICePs) reweighted conformatio
  - [`analysis_all_data/`](analysis_all_data/): plots traces of neglogP for (lambda, xi) trajectories
  - [`analysis_all_data/triangle_plot.py`](analysis_all_data/triangle_plot.py): triangle plot of BICePs reweighted and prior macrostate populations
  - [`analysis_all_data/plot_final_scores.py`](analysis_all_data/plot_final_scores.py): loads results from final scores and makes plots
+ - [`analysis_all_data/thermodynamic_integration_of_xi_leg_using_mbar.py`](analysis_all_data/thermodynamic_integration_of_xi_leg_using_mbar.py): biceps script to get free energy of data restraints
 - [`analysis_J_only/`](analysis_J_only/): scripts used for analysis (only J-coupling data)
 - [`analysis_cs_only/`](analysis_cs_only/): scripts used for analysis (only chemical shift data)
 - [`analysis_noe_only/`](analysis_noe_only/): scripts used for analysis (only NOE distances)
