@@ -114,7 +114,7 @@ def append_to_database(A, dbName="database_Nd.pkl", verbose=False, **kwargs):
 
 # MAIN:{{{
 save_obj = 1
-testing = 1
+testing = 0
 if testing: FF = 0
 else: FF = int(sys.argv[2])
 if testing: nstates = 500
@@ -143,13 +143,13 @@ stat_model, data_uncertainty = "Students_intermediate", "single"
 #stat_model, data_uncertainty = "Gaussian_intermediate", "multiple"
 
 analysis_dir = "../analysis_all_data"
-all_data = 0
+all_data = 1
 #analysis_dir = "../analysis_noe_only"
 noe_only = 0
 #analysis_dir = "../analysis_j_only"
 J_only   = 0
-analysis_dir = "../analysis_cs_only"
-cs_only  = 1
+#analysis_dir = "../analysis_cs_only"
+cs_only  = 0
 
 
 #if stat_model == "Gaussian_intermediate": burn = 1000000
@@ -183,8 +183,6 @@ lambda_values = np.linspace(0.0, 1.0, n_lambdas)
 data_likelihood = "gaussian" #"log normal" # "gaussian"
 
 continuous_space=0
-dsigma=0.05 # good
-move_sigma_std=1.0
 
 attempt_move_state_every = 5
 attempt_move_sigma_every = 2
@@ -192,14 +190,6 @@ attempt_move_sigma_every = 2
 #attempt_move_state_every = 50
 #attempt_move_sigma_every = 20
 
-
-
-
-
-scale_and_offset = 0
-move_ftilde_every = 0
-dftilde = 1.10 #1.0 #0.1
-ftilde_sigma = 1.0 #2.0 #1.0
 
 verbose = 0#False
 if verbose:
@@ -356,12 +346,9 @@ lambda_values = ensemble.lambda_values
 ensemble.initialize_restraints(input_data, options)
 sampler = biceps.PosteriorSampler(ensemble, nreplicas,
         write_every=write_every, change_Nr_every=change_Nr_every,
-        continuous_space=continuous_space, dsigma=dsigma, move_sigma_std=move_sigma_std,
-        dftilde=dftilde, move_ftilde_every=move_ftilde_every,
-        ftilde_sigma=ftilde_sigma, scale_and_offset=scale_and_offset,
-#        change_xi_every=round(nsteps/11.75), dXi=0.09, xi_integration=True) # GB, GaussianSP, Students (for all data and NOE)
+        change_xi_every=round(nsteps/11.75), dXi=0.09, xi_integration=True) # GB, GaussianSP, Students (for all data and NOE)
 
-        change_xi_every=round(nsteps/11), dXi=0.1, xi_integration=True) # Bayesian &&& GB, GaussianSP, Students (for J and cs)
+#        change_xi_every=round(nsteps/11), dXi=0.1, xi_integration=True) # Bayesian &&& GB, GaussianSP, Students (for J and cs)
         #xi_integration=1) # Bayesian (same as above)
 sampler.sample(nsteps, attempt_lambda_swap_every=swap_every, swap_sigmas=1, swap_forward_model=swap_forward_model,
         find_optimal_nreplicas=find_optimal_nreplicas,

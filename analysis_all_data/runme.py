@@ -144,18 +144,9 @@ lambda_values = np.linspace(0.0, 1.0, n_lambdas)
 data_likelihood = "gaussian" #"log normal" # "gaussian"
 
 continuous_space=0
-dsigma=0.05 # good
-move_sigma_std=1.0
 
 attempt_move_state_every = 5
 attempt_move_sigma_every = 2
-
-
-
-scale_and_offset = 0
-move_ftilde_every = 0
-dftilde = 1.10 #1.0 #0.1
-ftilde_sigma = 1.0 #2.0 #1.0
 
 verbose = 0#False
 if verbose:
@@ -278,10 +269,7 @@ energies = np.concatenate(energies)
 ensemble = biceps.ExpandedEnsemble(energies=energies, lambda_values=lambda_values)
 ensemble.initialize_restraints(input_data, options)
 sampler = biceps.PosteriorSampler(ensemble, nreplicas,
-        write_every=write_every, change_Nr_every=change_Nr_every,
-        continuous_space=continuous_space, dsigma=dsigma, move_sigma_std=move_sigma_std,
-        dftilde=dftilde, move_ftilde_every=move_ftilde_every,
-        ftilde_sigma=ftilde_sigma, scale_and_offset=scale_and_offset)
+        write_every=write_every, change_Nr_every=change_Nr_every)
 sampler.sample(nsteps, attempt_lambda_swap_every=swap_every, swap_sigmas=1,
         find_optimal_nreplicas=find_optimal_nreplicas,
         attempt_move_state_every=attempt_move_state_every,
